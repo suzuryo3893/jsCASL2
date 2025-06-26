@@ -1,0 +1,575 @@
+<!--
+jsCASL2/jsCOMET2, CASLII/COMETII emulator implemented in Javascript.
+Copyright (c) 2025, Ryota SUZUKI.
+
+The codes are transpiled and modified from PyCASL2/PyCOMET2.
+
+PyCOMET2 is COMET II emulator implemented in Python.
+Copyright (c) 2012, Yasuaki Mitani.
+Copyright (c) 2009, Masahiko Nakamoto.
+All rights reserved.
+
+Based on a simple implementation of COMET II emulator.
+Copyright (c) 2001-2008, Osamu Mizuno.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, see
+<https://www.gnu.org/licenses/>.
+-->
+
+<!doctype html>
+<html lang="ja">
+<head>
+<title>jsCASL2/jsCOMET2 Simulator</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- **** third party libs **** -->
+<!-- **** for UI **** -->
+
+<!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous" /> -->
+<link href="./libs/bootstrap.min.css" rel="stylesheet" />
+<!-- https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js -->
+<script  type="text/javascript" src="./libs/codemirror.min.js"></script>
+<!-- https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css -->
+<link  rel="stylesheet" href="./libs/codemirror.min.css" />
+<!-- <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/z80/z80.min.js"></script> -->
+<script type="text/javascript" src="./libs/z80.min.js"></script>
+<!-- <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/gas/gas.min.js"></script> -->
+
+<!-- **** requirements for jsCASL2/jsCOMMET2 **** -->
+<script src="./libs/agh.sprintf.js"></script>
+
+<!-- **** jsCASL2/jsCOMMET2 **** -->
+
+<script type="text/javascript">
+class jsComet{
+	jsCometConsole=class{
+		constructor(){
+		}
+
+		print(d){
+			let li = editor_console.lastLine();
+			let llen = editor_console.getLine(li).length;
+			editor_console.replaceRange(d+"\n",{line:li,ch:llen});
+			li=editor_console.lastLine();
+			editor_console.setCursor({line:li,ch:0});
+
+			console.log(d);
+		}
+		error(d){
+			//console.error(d);
+			throw d;
+		}
+	}
+
+	constructor(){
+		this.console=new this.jsCometConsole();
+	}
+}
+jscomet=new jsComet();
+</script>
+<script src="./argtypes.js"></script>
+<script src="./instructions.js"></script>
+<script src="./utils.js"></script>
+<script src="./jscasl2.js"></script>
+<script src="./jscomet2.js"></script>
+
+<script type="text/javascript">
+
+//*********************
+//**  Global variables
+
+isAssembled = false;
+isLoaded = false;
+succeededBin = null;
+isMinimizeZero = true;
+
+//*********************
+//**  Global functions
+
+function doAssemble(){
+	let code = editor_casl.getValue();
+	let succeeded=[];
+	try{
+		succeeded = casl2.assemble(code);
+	}
+	catch(e){
+		isAssembled = false;
+		isLoaded = false;
+		switchRunButtons(false);
+		succeededBin = null;
+		if(e instanceof CASL2_Error){
+			if(r){
+				let li=e.line_num-1;
+				let nl=editor_casl.getLine(li).length;
+				editor_casl.setSelection({line:li, ch:0}, {line:li, ch:nl});
+			}
+		}
+		editor_console.getDoc().setValue(e.toString());
+		let li=editor_console.lastLine();
+		editor_console.setCursor({line:li,ch:0});
+		console.error(e);
+		alert("Error on assemble.");
+		return;
+	}
+
+	succeededBin = casl2.outputBin(succeeded);
+	casl2.dump(succeeded);
+
+	isAssembled = true;
+	switchRunButtons(true);
+
+}
+
+function doRun(){
+	if(!isLoaded) comet2.load(succeededBin, true);
+	isLoaded=false;
+
+	try{
+		comet2.run();
+	}
+	catch(e){
+		if(e instanceof MachineExit){
+			console.log("exited successfully");
+			isLoaded=false;
+			let li = editor_console.lastLine();
+			let llen = editor_console.getLine(li).length;
+			editor_console.replaceRange("exited successfully"+"\n",{line:li,ch:llen});
+			li=editor_console.lastLine();
+			editor_console.setCursor({line:li,ch:0});
+		}
+		else throw e;
+	}
+
+	printMemories();
+}
+
+function doStep(){
+	if(!isLoaded) comet2.load(succeededBin, true);
+	isLoaded=true;
+
+	try{
+		comet2.step();
+		let dis_code = comet2.disassemble_current();
+		let li = editor_console.lastLine();
+		let llen = editor_console.getLine(li).length;
+		editor_console.replaceRange(dis_code+"\n",{line:li,ch:llen});
+		li=editor_console.lastLine();
+		editor_console.setCursor({line:li,ch:0});
+	}
+	catch(e){
+		if(e instanceof MachineExit){
+			console.log("exited successfully");
+			isLoaded=false;
+			let li = editor_console.lastLine();
+			let llen = editor_console.getLine(li).length;
+			editor_console.replaceRange("exited successfully"+"\n",{line:li,ch:llen});
+			li=editor_console.lastLine();
+			editor_console.setCursor({line:li,ch:0});
+		}
+		else throw e;
+	}
+
+	printMemories();
+
+}
+
+function switchRunButtons(sw){
+	document.getElementById("doRun").disabled=!sw;
+	document.getElementById("doStepOver").disabled=!sw;
+	// document.getElementById("doStepIn").disabled=!sw;
+	// document.getElementById("doStepOut").disabled=!sw;
+}
+
+function printMemories(){
+	document.getElementById("PR").value = ("0000"+comet2.PR.toString(16)).slice(-4);
+	document.getElementById("SP").value = ("0000"+comet2.SP.toString(16)).slice(-4);
+	document.getElementById("ZF").value = comet2.ZF.toString();
+	document.getElementById("SF").value = comet2.SF.toString();
+	document.getElementById("OF").value = comet2.OF.toString();
+	document.getElementById("GR0").value = comet2.GR[0].toString(16);
+	document.getElementById("GR1").value = comet2.GR[1].toString(16);
+	document.getElementById("GR2").value = comet2.GR[2].toString(16);
+	document.getElementById("GR3").value = comet2.GR[3].toString(16);
+	document.getElementById("GR4").value = comet2.GR[4].toString(16);
+	document.getElementById("GR5").value = comet2.GR[5].toString(16);
+	document.getElementById("GR6").value = comet2.GR[6].toString(16);
+	document.getElementById("GR7").value = comet2.GR[7].toString(16);
+
+	let scr=editor_memory.getScrollInfo();
+	let sels=editor_memory.listSelections();
+
+	let memory_str="";
+	//memory_str += "     | 0000 0001 0002 0003 | 0004 0005 0006 0007 | 0008 0009 000a 000b | 000c 000d 000e 000f\n";
+	//memory_str += " 0000 0001 0002 0003 | 0004 0005 0006 0007 | 0008 0009 000a 000b | 000c 000d 000e 000f\n";
+	for(let r=0;r<65536/16;++r){
+		//memory_str += ("0000"+(r*16).toString(16)).slice(-4);
+		for(let c=0;c<16;++c){
+			if(c!=0 && c%4==0) memory_str+=" |";
+			let fb=comet2.memory[c+r*16];
+			memory_str+=" "+((isMinimizeZero&&fb==0)?("...."):("0000"+fb.toString(16)).slice(-4));
+		}
+		memory_str+="\n";
+	}
+
+	editor_memory.getDoc().setValue(memory_str);
+	editor_memory.setSelection(sels[0].anchor,sels[0].head);
+	editor_memory.scrollIntoView({left:scr.left,top:scr.top,right:scr.left+scr.width,bottom:scr.top+scr.height});
+}
+
+function doCalc(){
+	let cim="hex";
+	let com="hex";
+	{
+		let cims=document.getElementsByName("calc_in_mode");
+		for(let i=0;i<cims.length;++i){if(cims[i].checked){cim=cims[i].value;break;}}
+		let coms=document.getElementsByName("calc_out_mode");
+		for(let i=0;i<coms.length;++i){if(coms[i].checked){com=coms[i].value;break;}}
+	}
+	footerCalc.chmod(cim);
+
+	let tcalc=document.getElementById("calc_in").value;
+	if(tcalc==""){
+		document.getElementById("calc_out").value="";
+	}
+	else{
+		let r = footerCalc.calculate(tcalc);
+		let pn = (com=="hex")?footerCalc.pn_hex:footerCalc.pn_dec;
+		document.getElementById("calc_out").value = pn.toString(r);
+	}
+}
+
+/** @interface */
+class Calc_ParserNum{
+	/** @type {RegExp} */
+	re;
+	constructor(){};
+	/** @param {string}
+	 * @return {number}
+	 */
+	p(s){return 0;}
+	/** @param {number}
+	 * @return {string}
+	 */
+	toString(i){return "";}
+}
+class Calc_ParserNumHex extends Calc_ParserNum{
+	constructor(){
+		super();
+		this.re="[\\da-fA-F]+";
+	}
+	/** @override */
+	p(s){
+		return parseInt(s,16);
+	}
+	/** @override */
+	toString(i){return i.toString(16);}
+} 
+class Calc_ParserNumDec extends Calc_ParserNum{
+	constructor(){
+		super();
+		this.re="\\d+";
+	}
+	/** @override */
+	p(s){
+		return parseInt(s,10);
+	}
+	/** @override */
+	toString(i){return i.toString(10);}
+} 
+//Calculator
+class Calc{
+	/** @type {string} */
+	mode;
+	/** @type {Calc_ParserNum} */
+	pn;
+	/** @type {Calc_ParserNumHex} */
+	pn_hex;
+	/** @type {Calc_ParserNumDec} */
+	pn_dec;
+
+
+	constructor(mode="hex"){
+		this.pn_hex=new Calc_ParserNumHex();
+		this.pn_dec=new Calc_ParserNumDec();
+		this.chmod(mode);
+	}
+	chmod(mode="hex"){
+		this.mode=mode;
+		switch(mode){
+		case "hex":
+			this.pn = this.pn_hex;
+			break;
+		case "dec":
+			this.pn = this.pn_dec;
+			break;
+		default:
+			throw new Error("mode must be either hex or dec");
+			break;
+		}
+	}
+
+	calculate(expression) {
+		try {
+			const tokens = this.tokenize(expression);
+			const ast = this.parse(tokens);
+			return this.evaluate(ast);
+		} catch (e) {
+			throw e;
+		}
+	}
+
+	tokenize(expression) {
+		//const regex = /(\d+(\.\d+)?)|([+\-*/])/g;
+		const regex = new RegExp(`(?<number>${this.pn.re})|(?<operator>[\\+\\-\\*/])`,"g");
+		const tokens = [];
+		let match = null;
+		while ((match = regex.exec(expression)) !== null) {
+			if(match.groups.number){
+				tokens.push({type:"number", value:this.pn.p(match.groups.number)});
+			}
+			else if(match.groups.operator){
+				tokens.push({type:"operator", value:match.groups.operator});
+			}
+		}
+		return tokens;
+	}
+
+	parse(tokens) {
+		let result = tokens[0].value;
+		for (let i = 1; i < tokens.length; i += 2) {
+			const operator = tokens[i].value;
+			const nextValue = tokens[i + 1].value;
+
+			if (operator === '+') {
+				result += nextValue;
+			} else if (operator === '-') {
+				result -= nextValue;
+			} else if (operator === '*') {
+				result *= nextValue;
+			} else if (operator === '/') {
+				if (nextValue === 0) {
+					throw new Error("Zero divisior");
+				}
+				result = Math.floor(result/nextValue);
+			}
+		}
+		return result;
+	}
+
+	evaluate(ast) {
+		return ast;
+	}
+}
+footerCalc=new Calc("hex");
+
+//*********************
+//**  Event callbacks
+
+function onLoad_body(){
+	editor_casl = CodeMirror(document.getElementById("code"), {
+		//mode: "text/x-z80",
+		mode: "text/x-gas",
+		theme: "default",
+		lineWrapping: true,
+		lineNumbers: true,
+		styleActiveLine: true,
+		matchBrackets: true,
+		tabSize: 8,
+		indentWithTabs:true,
+		smartIndent:true,
+		specialChars: new RegExp(/[\u0000-\u001f\u0020\u007f-\u009f\u00ad\u061c\u200b\u200e\u200f\u2028\u2029\u202d\u202e\u2066\u2067\u2069\ufeff\ufff9-\ufffc]/),
+		value: ""
+	});
+	editor_casl.setSize("100%", "100%");
+	editor_casl.refresh();
+	
+	editor_console = CodeMirror(document.getElementById("console"), {
+		//mode: "text/x-z80",
+		theme: "default",
+		readOnly: true,
+		//lineWrapping: true,
+		//lineNumbers: true,
+		styleActiveLine: true,
+		scrollbarStyle: 'native',
+		tabSize: 8,
+		value: ""
+	});
+	//editor_console.setSize("auto", "auto");
+	editor_console.refresh();
+
+	editor_memory = CodeMirror(document.getElementById("memory"), {
+		//mode: "text/x-z80",
+		theme: "default",
+		readOnly: true,
+		styleActiveLine: true,
+		scrollbarStyle: 'native',
+		tabSize: 8,
+		value: "",
+		lineNumberFormatter:(i)=>{return ("0000"+((i-1)*16).toString(16)).slice(-4)},
+		lineNumbers:true
+	});
+	editor_memory.on("scroll",(instance)=>{
+		let scr=instance.getScrollInfo();
+		document.getElementById("memory_header").scroll(scr.left,0);
+	});
+	//editor_memory.setSize("auto", "auto");
+	editor_memory.refresh();
+
+	casl2 = new CASL2();
+	comet2 = new jsComet2();
+
+}
+
+function onClick_doAssemble(){
+	doAssemble();
+	return;
+}
+function onClick_doRun(){
+	doRun();
+	return;
+}
+function onClick_doStepOver(){
+	doStep();
+	return;
+}
+// function onClick_doStepIn(){
+// 	return;
+// }
+// function onClick_doStepOut(){
+// 	return;
+// }
+function onChange_calc_in(){
+	doCalc();
+	return;
+}
+function onKeyDown_calc_in(e){
+	if(e.key=='Enter') doCalc();
+	return;
+}
+function onChange_cal_out_mode(e){
+	let s="";
+	switch(e.srcElement.value){
+	case "hex":
+		s = document.getElementById("calc_out").value;
+		document.getElementById("calc_out").value = (s=="")?"":footerCalc.pn_hex.toString(footerCalc.pn_dec.p(s));
+		break;
+	case "dec":
+		s = document.getElementById("calc_out").value;
+		document.getElementById("calc_out").value = (s=="")?"":footerCalc.pn_dec.toString(footerCalc.pn_hex.p(s));
+		break;
+	default:
+		break;
+	}
+}
+function onClick_console_cls(){
+	editor_console.setValue("");
+	return;
+}
+function onClick_memory_minshow_zero(){
+	isMinimizeZero=!isMinimizeZero;
+	printMemories();
+}
+</script>
+
+<style type="text/css">
+input[type="text"]{
+	width:5ex;
+	font-family:monospace;
+}
+.CodeMirror{
+	height:0;
+	min-height:100%;
+}
+.header,
+.footer{
+	background-color: #e6fff3;
+	padding:5px;
+}
+.text-clickable{
+	text-decoration: underline;
+	cursor : pointer;
+}
+</style>
+</head>
+<body style="height: 100vh" onload="onLoad_body()">
+	<div class="d-flex flex-column" style="height:100%">
+		<div id="header" class="header">jsCASL2/jsCOMET2 Simulator <span style="margin-left:2em"></span> <a href="./readme_ja.html" target="_blank">Doc(ja)</a></div>
+
+		<div class="container-fluid d-flex flex-grow-1" style="width:100%;height:100%">
+			<div class="row" style="width:100%;height:100%">
+				<div id="leftPane" class="d-flex flex-column col-sm-6" style="height:100%">
+
+					<div id="code" class="border m-1" style="height:50%;min-height:50%;max-height:50%;"></div>
+
+					<div id="buttons">
+						<input type="button" id="doAssemble" name="doAssemble" value="Asm" onclick="onClick_doAssemble()" />
+						<input type="button" id="doRun"      name="doRun"      value="▶"  onclick="onClick_doRun()"      disabled />
+						<input type="button" id="doStepOver" name="doStepOver" value="↓"   onclick="onClick_doStepOver()" disabled />
+						<!-- <input type="button" id="doStepIn"   name="doStepIn"   value="→"   onclick="onClick_doStepIn()"   disabled /> -->
+						<!-- <input type="button" id="doStepOut"  name="doStepOut"  value="←"   onclick="onClick_doStepOut()"  disabled /> -->
+					</div>
+
+					<div id="leftDownPane" class="d-flex flex-grow-1" style="height:100%">
+						<div class="d-flex flex-column m-1" style="width:100%;height:100%">
+							<div class="d-flex justify-content-between"><span>console</span><span class="text-clickable" onclick="onClick_console_cls()">cls</span></div>
+							<div id="console" class="border" style="height:100%"></div>
+						</div>
+					</div>
+			
+				</div>
+
+				<div id="rightPane" class="d-flex flex-column col-sm-6" style="height:100%">
+					<div class="m-1">
+						<div id="registers_ptrflg" class="row row-cols-5">
+							<div class="col">PR<input type="text" id="PR" value="" readonly /></div>
+							<div class="col">SP<input type="text" id="SP" value="" readonly /></div>
+							<div class="col">ZF<input type="text" id="ZF" value="" readonly /></div>	
+							<div class="col">SF<input type="text" id="SF" value="" readonly /></div>
+							<div class="col">OF<input type="text" id="OF" value="" readonly /></div>
+						</div>
+						<div id="registers_gr" class="row row-cols-4">
+							<div class="col">GR0<input type="text" id="GR0" value="" readonly /></div>
+							<div class="col">GR1<input type="text" id="GR1" value="" readonly /></div>
+							<div class="col">GR2<input type="text" id="GR2" value="" readonly /></div>
+							<div class="col">GR3<input type="text" id="GR3" value="" readonly /></div>
+							<div class="col">GR4<input type="text" id="GR4" value="" readonly /></div>
+							<div class="col">GR5<input type="text" id="GR5" value="" readonly /></div>
+							<div class="col">GR6<input type="text" id="GR6" value="" readonly /></div>
+							<div class="col">GR7<input type="text" id="GR7" value="" readonly /></div>
+						</div>
+					</div>
+					<div class="d-flex flex-grow-1" style="height:100%">
+						<div class="d-flex flex-column m-1" style="width:100%;height:100%">
+							<div class="d-flex justify-content-between"><span>memory view</span><span class="text-clickable" onclick="onClick_memory_minshow_zero()">min/show zero</span></div>
+							<div id="memory_header" style="font-family:monospace;white-space: nowrap;overflow-x: scroll;overflow-y: scroll;margin-left: 41px;">&emsp;0000 0001 0002 0003 | 0004 0005 0006 0007 | 0008 0009 000a 000b | 000c 000d 000e 000f</div>
+							<div id="memory" class="border" style="height:100%"></div><!--flex-grow-1-->
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div id="footer" class="footer">
+			<div>in: <input type="radio" name="calc_in_mode" value="hex" checked />hex <input type="radio" name="calc_in_mode" value="dec" />dec &emsp; out: <input type="radio" name="calc_out_mode" value="hex" onchange="onChange_cal_out_mode(arguments[0])" checked />hex <input type="radio" name="calc_out_mode" value="dec" onchange="onChange_cal_out_mode(arguments[0])" />dec &emsp; calc:<input type="text" style="width:100px" id="calc_in" name="calc_in" value="" onchange="onChange_calc_in()" onkeydown="onKeyDown_calc_in(arguments[0]);" /> => <input type="text" style="width:100px" id="calc_out" name="calc_out" value="" readonly /></div>
+			<div>Copyright (c) 2025, Ryota SUZUKI. All rights reserved. <a href="./LICENSE" target="_blank">The program is distributed under GPL-2.0 License</a>.</div>
+		</div>
+	</div>
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script> -->
+    <script src="./libs/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
