@@ -803,7 +803,8 @@ class CASL2{
 
     gen_code_dc(op, args){
         //全ての引数を数値にして戻す
-        let code=args.map(i=>this.cast_literal([i])[0])
+        let code=args.map(i=>this.cast_literal(i)).reduce(((l,c)=>c.concat(l)),[]);
+
         return code;
     }
 
@@ -837,7 +838,7 @@ class CASL2{
         else if(arg[0] == '\'')
             //value = [ord(i) for i in arg[1:-1]];
             //value = arg.slice(1,-1).map(i=>i.charCodeAt(0));
-            value = [arg.slice(1,-1).charCodeAt(0)];
+            value = [...arg.slice(1,-1)].map(i=>i.charCodeAt(0));
         else
             value = [a2l(parseInt(arg))];
         return value;
