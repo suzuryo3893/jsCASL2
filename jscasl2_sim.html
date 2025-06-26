@@ -43,9 +43,8 @@ along with this program; if not, see
 <script  type="text/javascript" src="./libs/codemirror.min.js"></script>
 <!-- https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css -->
 <link  rel="stylesheet" href="./libs/codemirror.min.css" />
-<!-- <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/z80/z80.min.js"></script> -->
-<script type="text/javascript" src="./libs/z80.min.js"></script>
-<!-- <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/gas/gas.min.js"></script> -->
+<!-- https://codemirror.net/5/addon/mode/simple.js -->
+<script type="text/javascript" src="./libs/simple.js"></script>
 
 <!-- **** requirements for jsCASL2/jsCOMMET2 **** -->
 <script src="./libs/agh.sprintf.js"></script>
@@ -378,9 +377,25 @@ footerCalc=new Calc("hex");
 //**  Event callbacks
 
 function onLoad_body(){
+	CodeMirror.defineSimpleMode("CASL2", {
+		start: [
+			{regex: /'(?:[^\\]|\\.)*?(?:'|$)/, token: "string"},
+			{regex: /(?:LD|ST|LAD|ADDA|ADDL|SUBA|SUBL|AND|OR|XOR|CPA|CPL|SLA|SRA|SLL|SRL|JPL|JMI|JNZ|JZE|JOV|JUMP|PUSH|POP|CALL|RET|SVC|NOP|START|END|DS|DC|IN|OUT|RPUSH|RPOP|GR\d)\b/,
+				token: "keyword"},
+			{regex: /#[a-f\d]+|(?<![a-zA-Z]\d*)\d+/i,
+				token: "number"},
+			{regex: /;.*/, token: "comment"},
+		],
+		comment: [
+		],
+		meta: {
+			dontIndentStates: ["comment"],
+			lineComment: ";"
+		}
+	});
+
 	editor_casl = CodeMirror(document.getElementById("code"), {
-		//mode: "text/x-z80",
-		mode: "text/x-gas",
+		mode: "CASL2",
 		theme: "default",
 		lineWrapping: true,
 		lineNumbers: true,
@@ -396,7 +411,7 @@ function onLoad_body(){
 	editor_casl.refresh();
 	
 	editor_console = CodeMirror(document.getElementById("console"), {
-		//mode: "text/x-z80",
+		mode:null,
 		theme: "default",
 		readOnly: true,
 		//lineWrapping: true,
@@ -410,7 +425,7 @@ function onLoad_body(){
 	editor_console.refresh();
 
 	editor_memory = CodeMirror(document.getElementById("memory"), {
-		//mode: "text/x-z80",
+		mode:null,
 		theme: "default",
 		readOnly: true,
 		styleActiveLine: true,
