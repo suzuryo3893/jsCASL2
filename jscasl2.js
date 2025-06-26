@@ -666,40 +666,30 @@ class CASL2{
 
     split_line(line, line_number){
         //  行からラベル、命令、オペランドを取り出す
+
         //# check empty line
-        //result = re.match('^\s*$', line)
         let result = line.match(/^\s*$/);
         if(result != null)
             return [null, null, null];
 
+        //TODO: DCが受け付けるので4引数以上対応にしたが，その影響は？
         const re_label = "(?<label>[A-Za-z_][A-Za-z0-9_]*)?"
         const re_op    = "\\s+(?<op>[A-Z]+)"
-        const re_arg1  = "(?<arg1>=?(([-#]?[A-Za-z0-9_]+)|('.*')))"
-        const re_arg2  = "(?<arg2>=?(([-#]?[A-Za-z0-9_]+)|('.*')))"
-        const re_arg3  = "(?<arg3>=?(([-#]?[A-Za-z0-9_]+)|('.*')))"
-        const re_args  = `(\\s+${re_arg1}(\\s*,\\s*${re_arg2}(\\s*,\\s*${re_arg3})?)?)?`
+        const re_args    = "(\\s+(?<args>=?(([-#]?[A-Za-z0-9_]+)|('.*'))(\\s*,\\s*(=?(([-#]?[A-Za-z0-9_]+)|('.*'))))*))?"
         const re_comment = "(\\s*(;(?<comment>.+)?)?)?"
         const pattern = new RegExp("(^" + re_label + re_op + re_args + ")?" + re_comment)
 
         result = line.match(pattern)
 
         if(result == null){
-            // jscomet.console.error(`Line ${line_number}: Invalid line was found.` +"\n"+ line);
-            // throw new RangeError(); //exit
             throw new CASL2_Error(line_number, line, "Invalid line was found.\n");
         }
 
         let label = result.groups['label'];
         let op = result.groups['op'];
         let args = null;
-        if(result.groups["arg1"]!=null){
-            args = [result.groups['arg1']];
-            if(result.groups['arg2']!=null){
-                args.push(result.groups['arg2']);
-                if(result.groups['arg3']!=null){
-                    args.push(result.groups['arg3']);
-                }
-            }
+        if(result.groups["args"]!=null){
+            args=result.groups["args"].split(/\s*,\s*/);
         }
 
         return new CASL2_Instruction(label, op, args, line_number, line);
@@ -806,16 +796,13 @@ class CASL2{
 
     /** @returns {Array<number>} */
     gen_code_ds(op, args){
-        // let code = array.array('H', [0]*int(args[0])); //TODO:unsigned short このint castはなんなんだ
-        //let code = [0].repeat(parseInt(args[0])); //TODO:array.arrayってなんだ．
         let code = new Array(parseInt(args[0])).fill(0);
         return code;
     }
 
     gen_code_dc(op, args){
-        let cnst = this.cast_literal(args[0]);
-        //code = array.array('H', cnst);
-        let code = cnst; //TODO:cast_literalの戻り値は配列か…？
+        //全ての引数を数値にして戻す
+        let code=args.map(i=>this.cast_literal([i])[0])
         return code;
     }
 
