@@ -203,10 +203,10 @@ class CASL2_Label{
         let s="";
         if(_scope.length == 0)
             //s = '%s:%d\t%04x\t%s' % (self.filename, self.lines, self.addr, label)
-            s = ""+this.filename+":"+this.lines+"\t"+CASL2.zpx(4,this.addr)+"\t"+_label;
+            s = ""+this.filename+":"+this.lines+"\t#"+CASL2.zpx(4,this.addr)+"\t"+_label;
         else
             //s = '%s:%d\t%04x\t%s (%s)' % (self.filename, self.lines, self.addr, label, scope)
-            s = ""+this.filename+":"+this.lines+"\t"+CASL2.zpx(4,this.addr)+"\t"+_label+" ("+_scope+")";
+            s = ""+this.filename+":"+this.lines+"\t#"+CASL2.zpx(4,this.addr)+"\t"+_label+" ("+_scope+")";
         return s;
     }
 }
@@ -239,21 +239,21 @@ class CASL2_ByteCode{
         let s="";
         if(this.code.length > 0){
             //s = '%04x\t%04x\t\t%d\t%s' % (self.addr, self.code[0], self.line_number, self.src);
-            s = ""+CASL2.zpx(4,this.addr)+"\t"+CASL2.zpx(4,this.code[0])+"\t\t"+this.line_number+"\t"+this.src;
+            s = "#"+CASL2.zpx(4,this.addr)+"\t"+CASL2.zpx(4,this.code[0])+"\t\t"+this.line_number+"\t"+this.src;
         }
         else{
-            s = ""+CASL2.zpx(4,this.addr)+"\t    \t\t"+this.line_number+"\t"+this.src;
+            s = "#"+CASL2.zpx(4,this.addr)+"\t    \t\t"+this.line_number+"\t"+this.src;
         }
 
         if(this.code.length > 1){
             s += '\n';
             if(Number.isInteger(this.code[1])){
                 //s += '%04x\t%04x' % (self.addr+1, self.code[1]);
-                s += ""+CASL2.zpx(4,this.addr+1)+"\t"+CASL2.zpx(4,this.code[1]);
+                s += "#"+CASL2.zpx(4,this.addr+1)+"\t"+CASL2.zpx(4,this.code[1]);
             }
             else{
                 //s += '%04x\t%s' % (self.addr+1, self.code[1]);
-                s += ""+CASL2.zpx(4,this.addr+1)+"\t"+this.code[1];
+                s += "#"+CASL2.zpx(4,this.addr+1)+"\t"+this.code[1];
             }
         }
 
@@ -261,11 +261,11 @@ class CASL2_ByteCode{
             s += '\n';
             if(Number.isInteger(this.code[2])){
                 //s += '%04x\t%04x' % (self.addr+2, self.code[2]);
-                s += ""+CASL2.zpx(4,this.addr+2)+"\t"+CASL2.zpx(4,this.code[2]);
+                s += "#"+CASL2.zpx(4,this.addr+2)+"\t"+CASL2.zpx(4,this.code[2]);
             }
             else{
                 //s += '%04x\t%s' % (self.addr+2, self.code[2])
-                s += ""+CASL2.zpx(4,this.addr+2)+"\t"+this.code[2];
+                s += "#"+CASL2.zpx(4,this.addr+2)+"\t"+this.code[2];
             }
         }
 
@@ -402,6 +402,7 @@ class CASL2{
         }
 
         jscomet.console.print('\nDefined labels');
+        jscomet.console.print('Line\tAddr\tLabel');
         let labels = Object.values(this.symbols);
         labels.sort((x, y)=>CASL2.cmp(x.lines, y.lines));
         for(let i of labels){
