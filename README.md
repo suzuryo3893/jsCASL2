@@ -1,9 +1,9 @@
 # jsCASL2 simulator
 
-Web simulator of CASL2/COMMET2 based on manually transpiled CASL2/COMMET2 in JavaScript from PyCASL2/PyCOMMET2.
+Web simulator of CASL2/COMET2 based on manually transpiled CASL2/COMMET2 in JavaScript from PyCASL2/PyCOMET2.
 
-CASL2/COMMET2のWebシミュレータです．
-PyCASL2/PyCOMMET2をベースに，JavaScriptに手動トランスパイルしたものをバックボーンにしています．
+CASL2/COMET2のWebシミュレータです．
+PyCASL2/PyCOMET2をベースに，JavaScriptに手動トランスパイルしたものをバックボーンにしています．
 
 # Usage
 
